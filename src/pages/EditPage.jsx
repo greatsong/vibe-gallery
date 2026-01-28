@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { isDemo, demoData, createProject, supabase } from '../lib/supabase';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { isDemo, demoData, supabase, updateProject, getProject } from '../lib/supabase';
 
-// Submit Page
-export default function SubmitPage() {
+// Edit Page - 프로젝트 수정
+export default function EditPage({ user }) {
+    const { id } = useParams();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
+    const [isFetching, setIsFetching] = useState(true);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -15,21 +17,76 @@ export default function SubmitPage() {
         category_id: '',
         event_id: '',
         license_id: '',
-        author_name: ''  // 닉네임(학교명) 추가
+        author_name: ''
     });
 
     const [selectedLicense, setSelectedLicense] = useState(null);
 
-    // 데모 데이터 사용 (Supabase 연결 여부와 관계없이)
     const categories = demoData.categories;
-    const events = [...demoData.events].reverse(); // 최신 행사가 위로
+    const events = [...demoData.events].reverse();
     const licenses = demoData.licenses;
+
+    useEffect(() => {
+        async function fetchProject() {
+            if (isDemo) {
+                const found = demoData.projects.find(p => p.id === id);
+                if (found) {
+                    setFormData({
+                        title: found.title || '',
+                        description: found.description || '',
+                        deploy_url: found.deploy_url || '',
+                        github_url: found.github_url || '',
+                        category_id: found.category_id?.toString() || '',
+                        event_id: found.event_id?.toString() || '',
+                        license_id: found.license_id?.toString() || '',
+                        author_name: found.author_name || ''
+                    });
+                }
+                setIsFetching(false);
+                return;
+            }
+
+            // Supabase에서 프로젝트 가져오기
+            const { data, error } = await supabase
+                .from('projects')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (error) {
+                console.error('Fetch error:', error);
+                alert('프로젝트를 불러오는데 실패했습니다.');
+                navigate('/');
+                return;
+            }
+
+            // 본인 글인지 확인
+            if (user && data.user_id !== user.id) {
+                alert('수정 권한이 없습니다.');
+                navigate(`/project/${id}`);
+                return;
+            }
+
+            setFormData({
+                title: data.title || '',
+                description: data.description || '',
+                deploy_url: data.deploy_url || '',
+                github_url: data.github_url || '',
+                category_id: data.category_id?.toString() || '',
+                event_id: data.event_id?.toString() || '',
+                license_id: data.license_id?.toString() || '',
+                author_name: data.author_name || ''
+            });
+            setIsFetching(false);
+        }
+
+        fetchProject();
+    }, [id, user, navigate]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
 
-        // Update selected license for info display
         if (name === 'license_id' && value) {
             const license = licenses.find(l => l.id === parseInt(value));
             setSelectedLicense(license);
@@ -41,7 +98,6 @@ export default function SubmitPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation
         if (!formData.title.trim()) {
             alert('프로젝트 제목을 입력해주세요.');
             return;
@@ -62,60 +118,57 @@ export default function SubmitPage() {
         setIsLoading(true);
 
         try {
-            // Supabase에 저장
             if (!isDemo && supabase) {
-                const { data: session } = await supabase.auth.getSession();
-                const userId = session?.session?.user?.id;
-
                 const projectData = {
                     title: formData.title.trim(),
                     description: formData.description.trim(),
                     deploy_url: formData.deploy_url.trim(),
                     github_url: formData.github_url.trim() || null,
-                    thumbnail_url: `https://picsum.photos/seed/${encodeURIComponent(formData.title)}/400/300`,
                     category_id: formData.category_id ? parseInt(formData.category_id) : null,
                     event_id: formData.event_id ? parseInt(formData.event_id) : null,
                     license_id: formData.license_id ? parseInt(formData.license_id) : null,
-                    author_name: formData.author_name.trim(),  // 닉네임 저장
-                    user_id: userId || null,
-                    is_published: true,
-                    view_count: 0,
-                    like_count: 0,
-                    comment_count: 0
+                    author_name: formData.author_name.trim()
                 };
 
-                const { data, error } = await createProject(projectData);
+                const { error } = await supabase
+                    .from('projects')
+                    .update(projectData)
+                    .eq('id', id);
 
                 if (error) {
-                    console.error('Supabase error:', error);
-                    alert('프로젝트 등록 중 오류가 발생했습니다: ' + error.message);
+                    console.error('Update error:', error);
+                    alert('수정 중 오류가 발생했습니다: ' + error.message);
                     return;
                 }
 
-                alert('🎉 프로젝트가 성공적으로 등록되었습니다!');
+                alert('✅ 프로젝트가 수정되었습니다!');
             } else {
-                // 데모 모드
                 await new Promise(resolve => setTimeout(resolve, 1000));
-                alert('🎉 프로젝트가 성공적으로 등록되었습니다! (데모 모드)');
+                alert('✅ 프로젝트가 수정되었습니다! (데모 모드)');
             }
 
-            navigate('/');
+            navigate(`/project/${id}`);
 
         } catch (error) {
             console.error('Submit error:', error);
-            alert('프로젝트 등록 중 오류가 발생했습니다.');
+            alert('수정 중 오류가 발생했습니다.');
         } finally {
             setIsLoading(false);
         }
     };
 
+    if (isFetching) {
+        return (
+            <div className="container" style={{ textAlign: 'center', padding: 'var(--spacing-2xl)' }}>
+                <div className="loading-spinner"></div>
+                <p>프로젝트 정보를 불러오는 중...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="container" style={{ maxWidth: '800px', padding: 'var(--spacing-2xl) var(--spacing-lg)' }}>
-            <h1 style={{ marginBottom: 'var(--spacing-lg)' }}>🚀 프로젝트 등록</h1>
-            <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-2xl)' }}>
-                바이브코딩으로 만든 멋진 프로젝트를 공유해주세요! 다른 선생님들에게 영감을 줄 수 있습니다.
-            </p>
+            <h1 style={{ marginBottom: 'var(--spacing-lg)' }}>✏️ 프로젝트 수정</h1>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
 
@@ -165,7 +218,6 @@ export default function SubmitPage() {
                         value={formData.deploy_url}
                         onChange={handleChange}
                     />
-                    <p className="form-help">Vercel, Netlify, GitHub Pages 등에 배포된 URL을 입력하세요.</p>
                 </div>
 
                 {/* GitHub URL */}
@@ -179,7 +231,6 @@ export default function SubmitPage() {
                         value={formData.github_url}
                         onChange={handleChange}
                     />
-                    <p className="form-help">코드를 공개하면 다른 분들이 배울 수 있어요!</p>
                 </div>
 
                 {/* Description */}
@@ -190,7 +241,7 @@ export default function SubmitPage() {
                     <textarea
                         name="description"
                         className="form-textarea"
-                        placeholder="프로젝트에 대해 설명해주세요. 어떤 문제를 해결하나요? 어떤 기술을 사용했나요? 수업에서 어떻게 활용할 수 있나요?"
+                        placeholder="프로젝트에 대해 설명해주세요."
                         value={formData.description}
                         onChange={handleChange}
                         rows={5}
@@ -250,79 +301,14 @@ export default function SubmitPage() {
                             </option>
                         ))}
                     </select>
-                    <p className="form-help">
-                        라이센스를 지정하면 다른 분들이 어떻게 활용할 수 있는지 명확해져요.
-                    </p>
-
-                    {/* License Info */}
-                    {selectedLicense && (
-                        <div className="license-info" style={{ marginTop: 'var(--spacing-md)' }}>
-                            <h4 className="license-info-title">📜 {selectedLicense.name}</h4>
-                            <p className="license-info-description">{selectedLicense.description}</p>
-                            <div className="license-badges">
-                                <span className={`license-badge ${selectedLicense.allow_commercial ? 'allowed' : 'restricted'}`}>
-                                    {selectedLicense.allow_commercial ? '✅ 상업적 이용 가능' : '⚠️ 비상업적만'}
-                                </span>
-                                <span className={`license-badge ${selectedLicense.require_attribution ? 'restricted' : 'allowed'}`}>
-                                    {selectedLicense.require_attribution ? '📝 출처 표시 필요' : '✅ 출처 표시 불필요'}
-                                </span>
-                                <span className={`license-badge ${selectedLicense.allow_modification ? 'allowed' : 'restricted'}`}>
-                                    {selectedLicense.allow_modification ? '✅ 수정 가능' : '⚠️ 수정 불가'}
-                                </span>
-                            </div>
-                            {selectedLicense.url && (
-                                <a
-                                    href={selectedLicense.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ display: 'inline-block', marginTop: 'var(--spacing-md)', fontSize: 'var(--text-sm)' }}
-                                >
-                                    라이센스 전문 보기 →
-                                </a>
-                            )}
-                        </div>
-                    )}
                 </div>
 
-                {/* License Guide */}
-                <div style={{
-                    background: 'var(--color-bg-card)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: 'var(--border-radius-lg)',
-                    padding: 'var(--spacing-lg)'
-                }}>
-                    <h4 style={{ marginBottom: 'var(--spacing-md)' }}>💡 라이센스 선택 가이드</h4>
-                    <div style={{
-                        display: 'grid',
-                        gap: 'var(--spacing-md)',
-                        fontSize: 'var(--text-sm)',
-                        color: 'var(--color-text-secondary)'
-                    }}>
-                        <p>
-                            <strong>MIT / Apache-2.0</strong>: 가장 자유로운 라이센스. 누구나 자유롭게 사용, 수정, 배포 가능.
-                            출처만 표시하면 됩니다.
-                        </p>
-                        <p>
-                            <strong>CC BY-NC</strong>: 비상업적 용도로만 사용 가능. 교육 자료 공유에 적합합니다.
-                            학교나 연수 등에서는 자유롭게 사용할 수 있지만, 상업적 판매는 불가.
-                        </p>
-                        <p>
-                            <strong>GPL-3.0</strong>: 수정한 코드도 같은 라이센스로 공개해야 합니다.
-                            오픈소스 정신을 지키고 싶을 때 선택하세요.
-                        </p>
-                        <p>
-                            <strong>라이센스 미선택</strong>: 저작권법에 따라 기본적으로 모든 권리가 저작자에게 있습니다.
-                            다른 분들이 활용하기 어려울 수 있어요.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Submit Button */}
+                {/* Buttons */}
                 <div style={{ display: 'flex', gap: 'var(--spacing-md)', justifyContent: 'flex-end' }}>
                     <button
                         type="button"
                         className="btn btn-secondary"
-                        onClick={() => navigate('/')}
+                        onClick={() => navigate(`/project/${id}`)}
                     >
                         취소
                     </button>
@@ -331,7 +317,7 @@ export default function SubmitPage() {
                         className="btn btn-primary"
                         disabled={isLoading}
                     >
-                        {isLoading ? '등록 중...' : '🚀 프로젝트 등록하기'}
+                        {isLoading ? '저장 중...' : '✅ 수정 완료'}
                     </button>
                 </div>
 

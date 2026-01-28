@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { isDemo, demoData } from '../lib/supabase';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { isDemo, demoData, supabase, getProject } from '../lib/supabase';
 
 // Format date
 const formatDate = (dateString) => {
@@ -63,8 +63,9 @@ function LicenseInfo({ license }) {
 }
 
 // Project Page
-export default function ProjectPage() {
+export default function ProjectPage({ user }) {
     const { id } = useParams();
+    const navigate = useNavigate();
     const [project, setProject] = useState(null);
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
@@ -194,6 +195,16 @@ export default function ProjectPage() {
                 >
                     {isLiked ? '❤️' : '🤍'} 좋아요 {likeCount}
                 </button>
+
+                {/* 본인 글 수정 버튼 */}
+                {user && project.user_id === user.id && (
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => navigate(`/edit/${project.id}`)}
+                    >
+                        ✏️ 수정하기
+                    </button>
+                )}
             </div>
 
             {/* Description */}

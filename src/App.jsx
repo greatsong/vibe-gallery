@@ -4,6 +4,7 @@ import { isDemo, demoData, signInWithGoogle, signOut, getSession, onAuthStateCha
 import HomePage from './pages/HomePage';
 import ProjectPage from './pages/ProjectPage';
 import SubmitPage from './pages/SubmitPage';
+import EditPage from './pages/EditPage';
 import './index.css';
 
 // Header Component with Auth
@@ -310,6 +311,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/project/:id" element={<ProjectPage user={user} />} />
           <Route path="/submit" element={<SubmitPage user={user} />} />
+          <Route path="/edit/:id" element={<EditPage user={user} />} />
         </Routes>
       </main>
 
