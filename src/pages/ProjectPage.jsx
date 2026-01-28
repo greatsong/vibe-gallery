@@ -73,16 +73,57 @@ export default function ProjectPage({ user }) {
     const [likeCount, setLikeCount] = useState(0);
 
     useEffect(() => {
-        // Load project data
-        if (isDemo) {
-            const found = demoData.projects.find(p => p.id === id);
-            if (found) {
-                setProject(found);
-                setLikeCount(found.like_count);
-                setComments(demoData.comments[id] || []);
+        async function fetchProject() {
+            // Load project data
+            if (isDemo) {
+                const found = demoData.projects.find(p => p.id === id);
+                if (found) {
+                    setProject(found);
+                    setLikeCount(found.like_count);
+                    setComments(demoData.comments[id] || []);
+                }
+                return;
+            }
+
+            // Supabase에서 프로젝트 가져오기
+            try {
+                const { data, error } = await supabase
+                    .from('projects')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+
+                if (error) {
+                    console.error('Project fetch error:', error);
+                    return;
+                }
+
+                // 카테고리, 라이선스 정보 가져오기
+                const { data: categories } = await supabase.from('categories').select('*');
+                const { data: licenses } = await supabase.from('licenses').select('*');
+                const { data: profiles } = await supabase.from('profiles').select('*');
+
+                const category = categories?.find(c => c.id === data.category_id);
+                const license = licenses?.find(l => l.id === data.license_id);
+                const profile = profiles?.find(p => p.id === data.user_id);
+
+                const enrichedProject = {
+                    ...data,
+                    user: profile
+                        ? { display_name: profile.display_name || data.author_name || '익명' }
+                        : { display_name: data.author_name || '익명' },
+                    category: category || { name: '기타', icon: '📁' },
+                    license: license || null
+                };
+
+                setProject(enrichedProject);
+                setLikeCount(data.like_count || 0);
+            } catch (err) {
+                console.error('Fetch error:', err);
             }
         }
-        // TODO: Real Supabase query
+
+        fetchProject();
     }, [id]);
 
     const handleLike = () => {
