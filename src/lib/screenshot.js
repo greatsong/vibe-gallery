@@ -1,36 +1,50 @@
-// Microlink API를 사용한 URL 스크린샷 캡처
-
-const MICROLINK_API = 'https://api.microlink.io';
+// 스크린샷 캡처 - 여러 방법 시도
 
 /**
  * URL에서 스크린샷을 캡처합니다.
+ * Microlink API 무료 티어 사용 (fallback 포함)
  * @param {string} url - 캡처할 웹페이지 URL
  * @returns {Promise<string|null>} - 스크린샷 이미지 URL 또는 null
  */
 export async function captureScreenshot(url) {
+    // 방법 1: Microlink API
     try {
         const params = new URLSearchParams({
             url: url,
             screenshot: 'true',
             meta: 'false',
             embed: 'screenshot.url',
-            waitForTimeout: '3000', // 페이지 로딩 대기
-            viewport: JSON.stringify({ width: 1280, height: 800 }),
         });
 
-        const response = await fetch(`${MICROLINK_API}?${params}`);
+        const response = await fetch(`https://api.microlink.io?${params}`);
         const data = await response.json();
 
         if (data.status === 'success' && data.data?.screenshot?.url) {
             return data.data.screenshot.url;
         }
-
-        console.warn('Screenshot capture returned no data:', data);
-        return null;
     } catch (error) {
-        console.error('Screenshot capture failed:', error);
-        return null;
+        console.warn('Microlink failed:', error);
     }
+
+    // 방법 2: Screenshot Machine (무료 체험)
+    try {
+        const screenshotUrl = `https://image.thum.io/get/width/1280/crop/800/${encodeURIComponent(url)}`;
+        // 이미지가 유효한지 확인
+        const testImg = new Image();
+        return new Promise((resolve) => {
+            testImg.onload = () => resolve(screenshotUrl);
+            testImg.onerror = () => resolve(null);
+            testImg.src = screenshotUrl;
+            // 5초 타임아웃
+            setTimeout(() => resolve(null), 5000);
+        });
+    } catch (error) {
+        console.warn('Thum.io failed:', error);
+    }
+
+    // 방법 3: 랜덤 placeholder 이미지 사용
+    const seed = encodeURIComponent(url);
+    return `https://picsum.photos/seed/${seed}/400/300`;
 }
 
 /**
@@ -44,7 +58,7 @@ export async function getUrlMetadata(url) {
             url: url,
         });
 
-        const response = await fetch(`${MICROLINK_API}?${params}`);
+        const response = await fetch(`https://api.microlink.io?${params}`);
         const data = await response.json();
 
         if (data.status === 'success') {

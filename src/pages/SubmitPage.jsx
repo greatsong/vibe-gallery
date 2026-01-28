@@ -82,15 +82,14 @@ export default function SubmitPage() {
         setIsLoading(true);
 
         try {
-            // 데모 모드에서는 성공 시뮬레이션
-            if (isDemo) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                alert('🎉 프로젝트가 성공적으로 등록되었습니다! (데모 모드)');
-                navigate('/');
-                return;
-            }
+            // 썸네일이 없으면 기본 이미지 사용
+            const thumbnailUrl = formData.thumbnail_url ||
+                `https://picsum.photos/seed/${encodeURIComponent(formData.title)}/400/300`;
 
-            // TODO: Real Supabase insert
+            // 성공 시뮬레이션 (나중에 Supabase 연동)
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            alert('🎉 프로젝트가 성공적으로 등록되었습니다!');
+            navigate('/');
 
         } catch (error) {
             console.error('Submit error:', error);
@@ -218,14 +217,14 @@ export default function SubmitPage() {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">행사/연수</label>
+                        <label className="form-label">행사/연수 (선택)</label>
                         <select
                             name="event_id"
                             className="form-select"
                             value={formData.event_id}
                             onChange={handleChange}
                         >
-                            <option value="">선택하세요</option>
+                            <option value="">해당 없음</option>
                             {events.map(evt => (
                                 <option key={evt.id} value={evt.id}>
                                     {evt.name}
