@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isDemo, demoData, createProject, supabase } from '../lib/supabase';
-import { captureScreenshot } from '../lib/screenshot';
 
 // Submit Page
 export default function SubmitPage() {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
-    const [isCapturing, setIsCapturing] = useState(false);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -37,28 +35,6 @@ export default function SubmitPage() {
             setSelectedLicense(license);
         } else if (name === 'license_id') {
             setSelectedLicense(null);
-        }
-    };
-
-    const handleCaptureScreenshot = async () => {
-        if (!formData.deploy_url) {
-            alert('먼저 배포된 링크를 입력해주세요.');
-            return;
-        }
-
-        setIsCapturing(true);
-        try {
-            const screenshotUrl = await captureScreenshot(formData.deploy_url);
-            if (screenshotUrl) {
-                setFormData(prev => ({ ...prev, thumbnail_url: screenshotUrl }));
-            } else {
-                alert('스크린샷 캡처에 실패했습니다. 직접 이미지 URL을 입력해주세요.');
-            }
-        } catch (error) {
-            console.error('Screenshot error:', error);
-            alert('스크린샷 캡처 중 오류가 발생했습니다.');
-        } finally {
-            setIsCapturing(false);
         }
     };
 
@@ -161,25 +137,14 @@ export default function SubmitPage() {
                     <label className="form-label">
                         배포된 링크 <span className="required">*</span>
                     </label>
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                        <input
-                            type="url"
-                            name="deploy_url"
-                            className="form-input"
-                            placeholder="https://my-project.vercel.app"
-                            value={formData.deploy_url}
-                            onChange={handleChange}
-                            style={{ flex: 1 }}
-                        />
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={handleCaptureScreenshot}
-                            disabled={isCapturing}
-                        >
-                            {isCapturing ? '캡처 중...' : '📸 스크린샷'}
-                        </button>
-                    </div>
+                    <input
+                        type="url"
+                        name="deploy_url"
+                        className="form-input"
+                        placeholder="https://my-project.vercel.app"
+                        value={formData.deploy_url}
+                        onChange={handleChange}
+                    />
                     <p className="form-help">Vercel, Netlify, GitHub Pages 등에 배포된 URL을 입력하세요.</p>
                 </div>
 
