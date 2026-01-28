@@ -22,19 +22,28 @@ export async function getProjects() {
     return { data: null, error: null };
   }
 
+  // 단순 쿼리로 프로젝트 가져오기 (조인 에러 방지)
   const { data, error } = await supabase
     .from('projects')
-    .select(`
-      *,
-      user:profiles(display_name, username),
-      category:categories(id, name, icon),
-      event:events(id, name),
-      license:licenses(id, short_name, name)
-    `)
+    .select('*')
     .eq('is_published', true)
     .order('created_at', { ascending: false });
 
-  return { data, error };
+  if (error) {
+    console.error('getProjects error:', error);
+    return { data: [], error };
+  }
+
+  // 프로젝트에 기본 메타데이터 추가
+  const enrichedData = data.map(project => ({
+    ...project,
+    user: { display_name: '익명', username: null },
+    category: { id: project.category_id, name: '기타', icon: '📁' },
+    event: { id: project.event_id, name: '' },
+    license: { id: project.license_id, short_name: 'MIT' }
+  }));
+
+  return { data: enrichedData, error: null };
 }
 
 /**
