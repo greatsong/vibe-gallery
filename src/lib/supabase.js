@@ -12,6 +12,150 @@ export const supabase = isDemoMode
 
 export const isDemo = isDemoMode;
 
+// ===== Project CRUD Functions =====
+
+/**
+ * 모든 프로젝트 조회
+ */
+export async function getProjects() {
+  if (isDemo) {
+    return { data: null, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('projects')
+    .select(`
+      *,
+      user:profiles(display_name, username),
+      category:categories(id, name, icon),
+      event:events(id, name),
+      license:licenses(id, short_name, name)
+    `)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false });
+
+  return { data, error };
+}
+
+/**
+ * 프로젝트 상세 조회
+ */
+export async function getProject(id) {
+  if (isDemo) {
+    return { data: null, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('projects')
+    .select(`
+      *,
+      user:profiles(display_name, username, avatar_url),
+      category:categories(id, name, icon),
+      event:events(id, name),
+      license:licenses(*)
+    `)
+    .eq('id', id)
+    .single();
+
+  return { data, error };
+}
+
+/**
+ * 프로젝트 생성
+ */
+export async function createProject(projectData) {
+  if (isDemo) {
+    return { data: null, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('projects')
+    .insert([projectData])
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+/**
+ * 조회수 증가
+ */
+export async function incrementViewCount(id) {
+  if (isDemo) return;
+
+  await supabase.rpc('increment_view_count', { project_id: id });
+}
+
+/**
+ * 좋아요 토글
+ */
+export async function toggleLike(projectId, userId) {
+  if (isDemo) {
+    return { liked: true, error: null };
+  }
+
+  // 기존 좋아요 확인
+  const { data: existing } = await supabase
+    .from('likes')
+    .select()
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .single();
+
+  if (existing) {
+    // 좋아요 취소
+    const { error } = await supabase
+      .from('likes')
+      .delete()
+      .eq('project_id', projectId)
+      .eq('user_id', userId);
+    return { liked: false, error };
+  } else {
+    // 좋아요 추가
+    const { error } = await supabase
+      .from('likes')
+      .insert([{ project_id: projectId, user_id: userId }]);
+    return { liked: true, error };
+  }
+}
+
+/**
+ * 댓글 조회
+ */
+export async function getComments(projectId) {
+  if (isDemo) {
+    return { data: null, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('comments')
+    .select(`
+      *,
+      user:profiles(display_name, avatar_url)
+    `)
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: true });
+
+  return { data, error };
+}
+
+/**
+ * 댓글 작성
+ */
+export async function createComment(projectId, userId, content) {
+  if (isDemo) {
+    return { data: null, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('comments')
+    .insert([{ project_id: projectId, user_id: userId, content }])
+    .select()
+    .single();
+
+  return { data, error };
+}
+
 // ===== Google OAuth Functions =====
 
 /**

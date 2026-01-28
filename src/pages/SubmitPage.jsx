@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isDemo, demoData } from '../lib/supabase';
+import { isDemo, demoData, createProject, supabase } from '../lib/supabase';
 import { captureScreenshot } from '../lib/screenshot';
 
 // Submit Page
@@ -86,9 +86,42 @@ export default function SubmitPage() {
             const thumbnailUrl = formData.thumbnail_url ||
                 `https://picsum.photos/seed/${encodeURIComponent(formData.title)}/400/300`;
 
-            // 성공 시뮬레이션 (나중에 Supabase 연동)
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            alert('🎉 프로젝트가 성공적으로 등록되었습니다!');
+            // Supabase에 저장
+            if (!isDemo && supabase) {
+                const { data: session } = await supabase.auth.getSession();
+                const userId = session?.session?.user?.id;
+
+                const projectData = {
+                    title: formData.title.trim(),
+                    description: formData.description.trim(),
+                    deploy_url: formData.deploy_url.trim(),
+                    github_url: formData.github_url.trim() || null,
+                    thumbnail_url: thumbnailUrl,
+                    category_id: formData.category_id ? parseInt(formData.category_id) : null,
+                    event_id: formData.event_id ? parseInt(formData.event_id) : null,
+                    license_id: formData.license_id ? parseInt(formData.license_id) : null,
+                    user_id: userId || null,
+                    is_published: true,
+                    view_count: 0,
+                    like_count: 0,
+                    comment_count: 0
+                };
+
+                const { data, error } = await createProject(projectData);
+
+                if (error) {
+                    console.error('Supabase error:', error);
+                    alert('프로젝트 등록 중 오류가 발생했습니다: ' + error.message);
+                    return;
+                }
+
+                alert('🎉 프로젝트가 성공적으로 등록되었습니다!');
+            } else {
+                // 데모 모드
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                alert('🎉 프로젝트가 성공적으로 등록되었습니다! (데모 모드)');
+            }
+
             navigate('/');
 
         } catch (error) {

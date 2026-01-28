@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { isDemo, demoData } from '../lib/supabase';
+import { isDemo, demoData, getProjects } from '../lib/supabase';
 
 // Calculate hotness (like ratio)
 const calculateHotness = (project) => {
@@ -97,12 +97,27 @@ export default function HomePage() {
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [eventFilter, setEventFilter] = useState('all');
     const [sortBy, setSortBy] = useState('latest');
+    const [supabaseProjects, setSupabaseProjects] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Get data (demo or real)
-    const categories = isDemo ? demoData.categories : [];
-    // 최신 행사가 맨 위로 오도록 역순 정렬
-    const events = isDemo ? [...demoData.events].reverse() : [];
-    const allProjects = isDemo ? demoData.projects : [];
+    // Supabase에서 프로젝트 데이터 로드
+    useEffect(() => {
+        async function loadProjects() {
+            if (!isDemo) {
+                const { data, error } = await getProjects();
+                if (data && !error) {
+                    setSupabaseProjects(data);
+                }
+            }
+            setIsLoading(false);
+        }
+        loadProjects();
+    }, []);
+
+    // 데모 데이터 + Supabase 데이터 합치기
+    const categories = demoData.categories;
+    const events = [...demoData.events].reverse(); // 최신 행사가 맨 위로
+    const allProjects = [...supabaseProjects, ...demoData.projects];
 
     // Filter and sort projects
     const filteredProjects = useMemo(() => {
