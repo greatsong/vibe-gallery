@@ -22,9 +22,10 @@ export default function SubmitPage() {
 
     const [selectedLicense, setSelectedLicense] = useState(null);
 
-    const categories = isDemo ? demoData.categories : [];
-    const events = isDemo ? demoData.events : [];
-    const licenses = isDemo ? demoData.licenses : [];
+    // 데모 데이터 사용 (Supabase 연결 여부와 관계없이)
+    const categories = demoData.categories;
+    const events = [...demoData.events].reverse(); // 최신 행사가 위로
+    const licenses = demoData.licenses;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
