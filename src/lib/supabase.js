@@ -22,8 +22,8 @@ export async function getProjects() {
     return { data: null, error: null };
   }
 
-  // 단순 쿼리로 프로젝트 가져오기 (조인 에러 방지)
-  const { data, error } = await supabase
+  // 프로젝트 가져오기
+  const { data: projects, error } = await supabase
     .from('projects')
     .select('*')
     .eq('is_published', true)
@@ -34,14 +34,41 @@ export async function getProjects() {
     return { data: [], error };
   }
 
-  // 프로젝트에 기본 메타데이터 추가
-  const enrichedData = data.map(project => ({
-    ...project,
-    user: { display_name: '익명', username: null },
-    category: { id: project.category_id, name: '기타', icon: '📁' },
-    event: { id: project.event_id, name: '' },
-    license: { id: project.license_id, short_name: 'MIT' }
-  }));
+  // 카테고리 정보 가져오기
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('*');
+
+  // 프로필 정보 가져오기
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('*');
+
+  // 라이선스 정보 가져오기
+  const { data: licenses } = await supabase
+    .from('licenses')
+    .select('*');
+
+  // 프로젝트에 관련 데이터 매핑
+  const enrichedData = projects.map(project => {
+    const category = categories?.find(c => c.id === project.category_id);
+    const profile = profiles?.find(p => p.id === project.user_id);
+    const license = licenses?.find(l => l.id === project.license_id);
+
+    return {
+      ...project,
+      user: profile
+        ? { display_name: profile.display_name || '익명', username: profile.username }
+        : { display_name: project.author_name || '익명', username: null },
+      category: category
+        ? { id: category.id, name: category.name, icon: category.icon }
+        : { id: null, name: '기타', icon: '📁' },
+      event: { id: project.event_id, name: '' },
+      license: license
+        ? { id: license.id, short_name: license.short_name, name: license.name }
+        : { id: null, short_name: 'MIT' }
+    };
+  });
 
   return { data: enrichedData, error: null };
 }
